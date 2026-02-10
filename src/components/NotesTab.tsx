@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { addNote, updateNote, deleteNote } from '@/lib/store';
+import { PlusIcon, ChevronLeftIcon, TrashIcon, NoteIcon } from './Icons';
 import type { Note } from '@/lib/types';
 
 interface Props {
@@ -25,7 +26,6 @@ export function NotesTab({ notes }: Props) {
   };
 
   const handleSelectNote = (note: Note) => {
-    // Save current note before switching
     if (editingNote) {
       updateNote(editingNote.id, { title, body });
     }
@@ -43,7 +43,6 @@ export function NotesTab({ notes }: Props) {
     }
   };
 
-  // Autosave
   const doAutosave = useCallback(() => {
     if (editingNote) {
       updateNote(editingNote.id, { title, body });
@@ -58,7 +57,6 @@ export function NotesTab({ notes }: Props) {
     };
   }, [title, body, doAutosave]);
 
-  // Toolbar actions for the contentEditable-like textarea
   const applyFormat = (tag: string) => {
     const textarea = document.getElementById('note-body') as HTMLTextAreaElement;
     if (!textarea) return;
@@ -85,99 +83,89 @@ export function NotesTab({ notes }: Props) {
 
   if (editingNote) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { doAutosave(); setEditingNote(null); }}
-            className="p-2 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/15 transition text-sm"
-          >
-            ← Back
+      <div className="space-y-4 animate-slide-up">
+        <div className="flex items-center justify-between">
+          <button onClick={() => { doAutosave(); setEditingNote(null); }}
+            className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition">
+            <ChevronLeftIcon size={16} />
+            Back
           </button>
-          <span className="text-xs text-gray-400 dark:text-gray-500">Auto-saving</span>
+          <span className="text-[10px] font-semibold text-[var(--accent)] uppercase tracking-wider flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            Auto-saving
+          </span>
         </div>
 
-        <input
-          type="text"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          placeholder="Note title"
-          className="w-full px-4 py-3 rounded-xl bg-white/60 dark:bg-white/10 backdrop-blur border border-gray-200 dark:border-white/20 text-gray-900 dark:text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
+        <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Note title"
+          className="input-field text-lg font-semibold" style={{ fontFamily: "'Space Grotesk', 'Inter', sans-serif" }} />
 
         {/* Formatting toolbar */}
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap p-1.5 rounded-[14px] bg-[var(--surface)] border border-[var(--surface-border)]">
           {[
-            { tag: 'bold', label: 'B', style: 'font-bold' },
-            { tag: 'italic', label: 'I', style: 'italic' },
-            { tag: 'underline', label: 'U', style: 'underline' },
-            { tag: 'strike', label: 'S', style: 'line-through' },
-            { tag: 'bullet', label: '•', style: '' },
-            { tag: 'number', label: '1.', style: '' },
+            { tag: 'bold', label: 'B', extra: 'font-bold' },
+            { tag: 'italic', label: 'I', extra: 'italic' },
+            { tag: 'underline', label: 'U', extra: 'underline' },
+            { tag: 'strike', label: 'S', extra: 'line-through' },
+            { tag: 'bullet', label: '•', extra: 'text-base' },
+            { tag: 'number', label: '1.', extra: '' },
           ].map(f => (
-            <button
-              key={f.tag}
-              onClick={() => applyFormat(f.tag)}
-              className={`px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/15 transition text-sm ${f.style}`}
-            >
+            <button key={f.tag} onClick={() => applyFormat(f.tag)}
+              className={`px-3 py-1.5 rounded-[10px] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition ${f.extra}`}>
               {f.label}
             </button>
           ))}
         </div>
 
-        <textarea
-          id="note-body"
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          placeholder="Start writing..."
-          rows={15}
-          className="w-full px-4 py-3 rounded-xl bg-white/60 dark:bg-white/10 backdrop-blur border border-gray-200 dark:border-white/20 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none leading-relaxed"
-        />
+        <textarea id="note-body" value={body} onChange={e => setBody(e.target.value)}
+          placeholder="Start writing…" rows={16}
+          className="input-field resize-none leading-relaxed" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Notes</h3>
-        <button onClick={() => setShowNew(!showNew)} className="text-xs text-blue-500 dark:text-blue-400 font-medium">+ New Note</button>
+      <div className="flex items-center justify-between px-1 animate-slide-up">
+        <p className="section-title">Notes</p>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)] hover:opacity-80 transition">
+          <PlusIcon size={13} />
+          New Note
+        </button>
       </div>
 
       {showNew && (
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newTitle}
-            onChange={e => setNewTitle(e.target.value)}
-            placeholder="Note title"
-            className="flex-1 px-3 py-2 rounded-xl bg-white/60 dark:bg-white/10 border border-gray-200 dark:border-white/20 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            onKeyDown={e => e.key === 'Enter' && handleNewNote()}
-          />
-          <button onClick={handleNewNote} className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition">Create</button>
+        <div className="flex gap-2 animate-scale-in">
+          <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Note title" className="input-field flex-1"
+            onKeyDown={e => e.key === 'Enter' && handleNewNote()} />
+          <button onClick={handleNewNote} className="btn-primary text-sm py-3 px-5">Create</button>
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-2 animate-slide-up" style={{ animationDelay: '0.05s' }}>
         {sortedNotes.length === 0 && (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">No notes yet. Create one!</p>
+          <div className="card p-10 text-center">
+            <div className="w-14 h-14 mx-auto rounded-2xl gradient-accent-subtle flex items-center justify-center mb-4">
+              <NoteIcon size={24} className="text-[var(--accent)]" />
+            </div>
+            <p className="text-sm font-medium text-[var(--text-secondary)]">No notes yet</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">Create your first note above</p>
+          </div>
         )}
         {sortedNotes.map(note => (
-          <div
-            key={note.id}
-            className="group p-4 rounded-xl bg-white/50 dark:bg-white/5 backdrop-blur border border-gray-100 dark:border-white/10 hover:bg-white/70 dark:hover:bg-white/10 transition cursor-pointer"
-            onClick={() => handleSelectNote(note)}
-          >
-            <div className="flex items-start justify-between gap-2">
+          <div key={note.id} className="group card-sm p-4 cursor-pointer" onClick={() => handleSelectNote(note)}>
+            <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{note.title}</h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{note.body || 'Empty note'}</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date(note.updated_at).toLocaleDateString()}</p>
+                <h4 className="text-sm font-semibold text-[var(--text-primary)] truncate" style={{ fontFamily: "'Space Grotesk', 'Inter', sans-serif" }}>
+                  {note.title}
+                </h4>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1.5 line-clamp-2 leading-relaxed">{note.body || 'Empty note'}</p>
+                <p className="text-[10px] font-medium text-[var(--text-tertiary)] mt-2">
+                  {new Date(note.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
               </div>
-              <button
-                onClick={e => { e.stopPropagation(); handleDeleteNote(note.id); }}
-                className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                🗑️
+              <button onClick={e => { e.stopPropagation(); handleDeleteNote(note.id); }}
+                className="p-2 rounded-xl hover:bg-red-500/10 text-[var(--text-tertiary)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                <TrashIcon size={14} />
               </button>
             </div>
           </div>

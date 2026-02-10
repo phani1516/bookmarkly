@@ -24,6 +24,7 @@ export interface Link {
   is_deleted: boolean;
   file_name?: string;
   file_data?: string;
+  file_url?: string;
   notes?: string;
   user_id?: string;
 }
@@ -36,6 +37,14 @@ export interface Note {
   updated_at: string;
   is_deleted: boolean;
   user_id?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  display_name: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export type Tab = 'home' | 'web' | 'videos' | 'documents' | 'notes';

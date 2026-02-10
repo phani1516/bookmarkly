@@ -1,6 +1,7 @@
 import { LinkInput } from './LinkInput';
 import { LinkItem } from './LinkItem';
 import { addLink } from '@/lib/store';
+import { GlobeIcon, PlayIcon, FileIcon } from './Icons';
 import type { Link, Category } from '@/lib/types';
 
 interface Props {
@@ -21,43 +22,48 @@ export function HomeTab({ links, categories }: Props) {
   const videoCount = links.filter(l => l.type === 'Video').length;
   const docCount = links.filter(l => l.type === 'Document').length;
 
+  const stats = [
+    { label: 'Web', count: webCount, icon: GlobeIcon, gradient: 'from-blue-500 to-blue-600' },
+    { label: 'Videos', count: videoCount, icon: PlayIcon, gradient: 'from-purple-500 to-indigo-600' },
+    { label: 'Docs', count: docCount, icon: FileIcon, gradient: 'from-emerald-500 to-teal-600' },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {/* Quick capture */}
-      <div className="p-4 rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-lg border border-gray-200 dark:border-white/10 shadow-lg">
-        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Quick Capture</h3>
-        <LinkInput categories={categories} onSave={handleSave} type="Web" />
+      <div className="card p-5 animate-slide-up">
+        <p className="section-title mb-4">Quick Capture</p>
+        <LinkInput categories={categories} onSave={handleSave} />
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'Web', count: webCount, emoji: '🌐' },
-          { label: 'Videos', count: videoCount, emoji: '🎬' },
-          { label: 'Docs', count: docCount, emoji: '📄' },
-        ].map(s => (
-          <div key={s.label} className="p-4 rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-lg border border-gray-200 dark:border-white/10 text-center">
-            <div className="text-2xl mb-1">{s.emoji}</div>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">{s.count}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">{s.label}</div>
+      <div className="grid grid-cols-3 gap-3 animate-slide-up" style={{ animationDelay: '0.05s' }}>
+        {stats.map(s => (
+          <div key={s.label} className="card p-4 text-center group cursor-default">
+            <div className={`mx-auto w-10 h-10 rounded-[12px] bg-gradient-to-br ${s.gradient} flex items-center justify-center mb-3 shadow-lg group-hover:scale-105 transition-transform duration-300`}>
+              <s.icon size={18} className="text-white" />
+            </div>
+            <div className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">{s.count}</div>
+            <div className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Recent links */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Recent</h3>
+      {/* Recent */}
+      <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <p className="section-title mb-4 px-1">Recent</p>
         <div className="space-y-2">
           {recentLinks.length === 0 && (
-            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">No links saved yet. Start capturing!</p>
+            <div className="card p-10 text-center">
+              <div className="w-14 h-14 mx-auto rounded-2xl gradient-accent-subtle flex items-center justify-center mb-4">
+                <GlobeIcon size={24} className="text-[var(--accent)]" />
+              </div>
+              <p className="text-sm font-medium text-[var(--text-secondary)]">No links saved yet</p>
+              <p className="text-xs text-[var(--text-tertiary)] mt-1">Start capturing with the input above</p>
+            </div>
           )}
           {recentLinks.map(link => (
-            <LinkItem
-              key={link.id}
-              link={link}
-              categories={categories}
-              categoryName={categories.find(c => c.id === link.category_id)?.name}
-            />
+            <LinkItem key={link.id} link={link} categories={categories} categoryName={categories.find(c => c.id === link.category_id)?.name} />
           ))}
         </div>
       </div>

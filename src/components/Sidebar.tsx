@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import type { ThemeMode } from '@/lib/types';
 import type { User } from '@supabase/supabase-js';
-import { pullFromSupabase } from '@/lib/store';
+import { fullSync } from '@/lib/store';
+import type { SyncStatus } from '@/lib/store';
+import {
+  CloseIcon, SunIcon, MoonIcon, SyncIcon, UserIcon,
+  InfoIcon, LogOutIcon, BookmarkIcon
+} from './Icons';
 
 interface Props {
   open: boolean;
@@ -9,155 +14,217 @@ interface Props {
   theme: ThemeMode;
   toggleTheme: () => void;
   user: User | null;
-  onSignInGoogle: () => void;
-  onSignInEmail: (email: string, password: string, isSignUp: boolean) => Promise<void>;
+  displayName: string;
+  syncStatus: SyncStatus;
+  onOpenAuth: () => void;
+  onOpenProfile: () => void;
   onSignOut: () => void;
 }
 
-export function Sidebar({ open, onClose, theme, toggleTheme, user, onSignInGoogle, onSignInEmail, onSignOut }: Props) {
+export function Sidebar({ open, onClose, theme, toggleTheme, user, displayName, syncStatus, onOpenAuth, onOpenProfile, onSignOut }: Props) {
   const [showAbout, setShowAbout] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [authError, setAuthError] = useState('');
-  const [syncStatus, setSyncStatus] = useState<string>('');
+  const [localSyncMsg, setLocalSyncMsg] = useState('');
   const [syncing, setSyncing] = useState(false);
 
-  const handleEmailAuth = async () => {
-    setAuthError('');
+  const handleSync = async () => {
+    if (!user) {
+      setLocalSyncMsg('Sign in first to sync');
+      setTimeout(() => setLocalSyncMsg(''), 3000);
+      return;
+    }
+    setSyncing(true);
+    setLocalSyncMsg('');
     try {
-      await onSignInEmail(email, password, isSignUp);
-      setShowAuth(false);
-      setEmail('');
-      setPassword('');
-    } catch (e: unknown) {
-      setAuthError(e instanceof Error ? e.message : 'Auth failed');
+      const result = await fullSync();
+      setLocalSyncMsg(result.message);
+    } catch {
+      setLocalSyncMsg('Sync failed. Try again.');
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setLocalSyncMsg(''), 8000);
     }
   };
 
-  const handleSync = async () => {
-    setSyncing(true);
-    setSyncStatus('Syncing...');
-    const result = await pullFromSupabase();
-    setSyncing(false);
-    setSyncStatus(result.success ? 'Synced ✓' : `Error: ${result.error}`);
-    setTimeout(() => setSyncStatus(''), 5000);
+  const formatLastSync = (iso: string | null) => {
+    if (!iso) return 'Never synced';
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHrs = Math.floor(diffMins / 60);
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
+
+  const statusMsg = localSyncMsg || syncStatus.message;
+  const isError = statusMsg.toLowerCase().includes('error') || statusMsg.toLowerCase().includes('fail');
 
   return (
     <>
       {/* Overlay */}
       {open && (
-        <div className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm" onClick={onClose} />
+        <div className="fixed inset-0 bg-black/40 z-40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
       )}
 
-      {/* Sidebar panel */}
-      <div className={`fixed top-0 left-0 h-full w-72 z-50 transform transition-transform duration-300 ease-in-out ${open ? 'translate-x-0' : '-translate-x-full'} bg-white/90 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200 dark:border-white/10 shadow-2xl`}>
-        <div className="flex flex-col h-full">
+      {/* Panel */}
+      <div className={`fixed top-0 left-0 h-full w-[300px] z-50 transform transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${open ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ background: theme === 'dark' ? 'rgba(10,10,15,0.97)' : 'rgba(248,249,252,0.97)', backdropFilter: 'blur(24px) saturate(180%)' }}>
+        <div className="flex flex-col h-full border-r border-[var(--surface-border)]">
           {/* Header */}
-          <div className="p-6 border-b border-gray-200 dark:border-white/10">
+          <div className="px-6 pt-6 pb-5 border-b border-[var(--surface-border)]">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">MindCache</h2>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-[12px] gradient-accent flex items-center justify-center shadow-lg shadow-[var(--accent-glow)]">
+                  <BookmarkIcon size={18} className="text-white" />
+                </div>
+                <span className="logo-text text-xl text-[var(--text-primary)]">Bookmarkly</span>
+              </div>
+              <button onClick={onClose} className="p-2 rounded-xl hover:bg-[var(--surface)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition">
+                <CloseIcon size={18} />
               </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {/* Theme toggle */}
+          <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+            {/* Account */}
             <div>
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Appearance</h3>
-              <button
-                onClick={toggleTheme}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/15 transition"
-              >
-                <span className="text-sm">{theme === 'light' ? '☀️ Light Mode' : '🌙 Dark Mode'}</span>
-                <div className={`w-10 h-6 rounded-full flex items-center transition-colors ${theme === 'dark' ? 'bg-blue-500 justify-end' : 'bg-gray-300 justify-start'}`}>
-                  <div className="w-4 h-4 bg-white rounded-full m-1 shadow" />
-                </div>
-              </button>
-            </div>
-
-            {/* Auth section */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Account</h3>
+              <p className="section-title mb-3 px-1">Account</p>
               {user ? (
-                <div className="space-y-3">
-                  <div className="px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30">
-                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">Connected</p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 truncate">{user.email}</p>
-                  </div>
-                  <button onClick={handleSync} disabled={syncing} className="w-full px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/30 text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition disabled:opacity-50">
-                    {syncing ? 'Syncing...' : '🔄 Sync Now'}
+                <div className="space-y-2.5">
+                  <button onClick={() => { onOpenProfile(); onClose(); }}
+                    className="w-full text-left px-4 py-3.5 card-sm hover:bg-[var(--surface-hover)] transition"
+                    style={{ borderColor: 'rgba(108,92,231,0.15)' }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full gradient-accent flex items-center justify-center text-white text-sm font-bold shrink-0">
+                        {(displayName || 'U')[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                          {displayName || 'User'}
+                        </p>
+                        <p className="text-[10px] font-medium text-[var(--accent)] uppercase tracking-wider mt-0.5">
+                          View Profile →
+                        </p>
+                      </div>
+                    </div>
                   </button>
-                  {syncStatus && (
-                    <p className={`text-xs px-2 ${syncStatus.includes('Error') ? 'text-red-500' : 'text-green-500'}`}>{syncStatus}</p>
-                  )}
-                  <button onClick={onSignOut} className="w-full px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition">
-                    Log out
+
+                  {/* Sync */}
+                  <div className="card-sm overflow-hidden">
+                    <button onClick={handleSync} disabled={syncing}
+                      className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-medium text-[var(--accent)] hover:bg-[var(--surface-hover)] disabled:opacity-50 transition">
+                      <span className="flex items-center gap-2">
+                        <SyncIcon size={15} className={syncing ? 'animate-spin' : ''} />
+                        {syncing ? 'Syncing…' : 'Sync Now'}
+                      </span>
+                      <span className="text-[10px] font-medium text-[var(--text-tertiary)]">
+                        {formatLastSync(syncStatus.lastSync)}
+                      </span>
+                    </button>
+                    {statusMsg && (
+                      <div className={`px-4 py-2.5 text-[11px] font-medium border-t border-[var(--surface-border)] ${
+                        isError ? 'text-red-500 bg-red-500/5' : 'text-green-600 bg-green-500/5'
+                      }`}>
+                        {statusMsg}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Log out */}
+                  <button onClick={() => { onSignOut(); onClose(); }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3.5 card-sm text-sm font-medium text-red-500 hover:bg-red-500/5 transition">
+                    <LogOutIcon size={15} />
+                    Log Out
                   </button>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <button onClick={onSignInGoogle} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white dark:bg-white/10 border border-gray-200 dark:border-white/20 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/15 transition shadow-sm">
-                    <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                    Connect Google
+                <div className="space-y-2.5">
+                  <button onClick={() => { onOpenAuth(); onClose(); }}
+                    className="w-full flex items-center justify-center gap-2.5 px-4 py-3.5 card-sm text-sm font-semibold text-[var(--accent)] hover:bg-[var(--surface-hover)] transition">
+                    <UserIcon size={16} />
+                    Sign in / Create account
                   </button>
-                  <button onClick={() => setShowAuth(!showAuth)} className="w-full px-4 py-3 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-white/15 transition">
-                    ✉️ Email Sign In
-                  </button>
-                  {showAuth && (
-                    <div className="space-y-2 p-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10">
-                      <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full px-3 py-2 rounded-lg bg-white dark:bg-white/10 border border-gray-200 dark:border-white/20 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                      <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="w-full px-3 py-2 rounded-lg bg-white dark:bg-white/10 border border-gray-200 dark:border-white/20 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                      {authError && <p className="text-xs text-red-500">{authError}</p>}
-                      <div className="flex gap-2">
-                        <button onClick={handleEmailAuth} className="flex-1 px-3 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition">
-                          {isSignUp ? 'Sign Up' : 'Sign In'}
-                        </button>
-                      </div>
-                      <button onClick={() => setIsSignUp(!isSignUp)} className="text-xs text-blue-500 dark:text-blue-400 hover:underline">
-                        {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-                      </button>
-                    </div>
-                  )}
+                  <p className="text-[10px] text-[var(--text-tertiary)] px-1 leading-relaxed">
+                    Sign in to save your bookmarks to the cloud and access them from any device.
+                  </p>
                 </div>
               )}
             </div>
 
-            {/* About */}
+            {/* Theme */}
             <div>
-              <button onClick={() => setShowAbout(true)} className="w-full px-4 py-3 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-white/15 transition text-left">
-                ℹ️ About MindCache
+              <p className="section-title mb-3 px-1">Appearance</p>
+              <button onClick={toggleTheme} className="w-full flex items-center justify-between px-4 py-3.5 card-sm">
+                <span className="flex items-center gap-3 text-sm font-medium text-[var(--text-primary)]">
+                  {theme === 'light' ? <SunIcon size={18} /> : <MoonIcon size={18} />}
+                  {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
+                </span>
+                <div className={`w-11 h-[26px] rounded-full flex items-center transition-all duration-300 ${theme === 'dark' ? 'bg-[var(--accent)] justify-end' : 'bg-gray-300 dark:bg-gray-600 justify-start'}`}>
+                  <div className="w-[20px] h-[20px] bg-white rounded-full m-[3px] shadow-md transition-all" />
+                </div>
               </button>
             </div>
+
+            {/* About */}
+            <div>
+              <button onClick={() => setShowAbout(true)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 card-sm text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition">
+                <InfoIcon size={16} />
+                About Bookmarkly
+              </button>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 border-t border-[var(--surface-border)]">
+            <p className="text-[10px] text-[var(--text-tertiary)] text-center">Bookmarkly v2.0 · Your data, your control</p>
           </div>
         </div>
       </div>
 
       {/* About modal */}
       {showAbout && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4" style={{ zIndex: 60 }}>
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAbout(false)} />
-          <div className="relative w-full max-w-sm bg-white/90 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/10 shadow-2xl p-6 space-y-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">🧠 MindCache</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              MindCache is a personal capture-first memory app designed to save, organize, and recall links, notes, and ideas effortlessly. It prioritizes speed, clarity, and ownership of your data.
-            </p>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Key Principles</p>
-              <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <li>⚡ Fast capture</li>
-                <li>📱 Local-first with optional cloud sync</li>
-                <li>✨ Clean, distraction-free design</li>
-                <li>🔒 User-owned data</li>
-              </ul>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-5">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-md" onClick={() => setShowAbout(false)} />
+          <div className="relative w-full max-w-sm animate-scale-in"
+            style={{
+              background: 'var(--bg-primary)',
+              backdropFilter: 'blur(24px)',
+              borderRadius: '24px',
+              border: '1px solid var(--surface-border)',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
+            }}>
+            <div className="p-7 space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-[14px] gradient-accent flex items-center justify-center shadow-lg shadow-[var(--accent-glow)]">
+                  <BookmarkIcon size={22} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="logo-text text-lg text-[var(--text-primary)]">Bookmarkly</h3>
+                  <p className="text-[10px] font-medium text-[var(--text-tertiary)] uppercase tracking-wider">Capture · Organize · Recall</p>
+                </div>
+              </div>
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                Bookmarkly is a personal capture-first memory app designed to save, organize, and recall links, notes, and ideas effortlessly.
+              </p>
+              <div className="space-y-2.5">
+                <p className="section-title">Key Principles</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { icon: '⚡', text: 'Fast Capture' },
+                    { icon: '📱', text: 'Local-First' },
+                    { icon: '✨', text: 'Clean Design' },
+                    { icon: '🔒', text: 'User-Owned Data' },
+                  ].map(p => (
+                    <div key={p.text} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[var(--surface)] text-xs font-medium text-[var(--text-secondary)]">
+                      <span>{p.icon}</span>{p.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button onClick={() => setShowAbout(false)} className="btn-secondary w-full text-sm py-3 mt-2">Close</button>
             </div>
-            <button onClick={() => setShowAbout(false)} className="w-full px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-200 dark:hover:bg-white/15 transition">
-              Close
-            </button>
           </div>
         </div>
       )}

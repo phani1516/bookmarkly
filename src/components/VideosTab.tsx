@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { LinkInput } from './LinkInput';
 import { LinkItem } from './LinkItem';
-import { addLink, addCategory } from '@/lib/store';
+import { addLink, addCategory, deleteCategory } from '@/lib/store';
+import { PlusIcon, PlayIcon, TrashIcon } from './Icons';
 import type { Link, Category, VideoSubtab } from '@/lib/types';
 
 interface Props {
@@ -9,7 +10,12 @@ interface Props {
   categories: Category[];
 }
 
-const subtabs: VideoSubtab[] = ['YouTube', 'Instagram', 'AI', 'Other'];
+const subtabs: { id: VideoSubtab; label: string }[] = [
+  { id: 'YouTube', label: 'YouTube' },
+  { id: 'Instagram', label: 'Instagram' },
+  { id: 'AI', label: 'AI' },
+  { id: 'Other', label: 'Other' },
+];
 
 export function VideosTab({ links, categories }: Props) {
   const [activeSubtab, setActiveSubtab] = useState<VideoSubtab>('YouTube');
@@ -31,71 +37,76 @@ export function VideosTab({ links, categories }: Props) {
     setShowNewCat(false);
   };
 
-  const displayLinks = selectedCat
-    ? filteredLinks.filter(l => l.category_id === selectedCat)
-    : filteredLinks;
+  const displayLinks = selectedCat ? filteredLinks.filter(l => l.category_id === selectedCat) : filteredLinks;
 
   return (
-    <div className="space-y-6">
-      {/* Subtabs */}
-      <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-white/5">
+    <div className="space-y-7">
+      <div className="p-1 rounded-[16px] bg-[var(--surface)] border border-[var(--surface-border)] flex gap-1 animate-slide-up">
         {subtabs.map(st => (
-          <button
-            key={st}
-            onClick={() => { setActiveSubtab(st); setSelectedCat(null); }}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${activeSubtab === st ? 'bg-white dark:bg-white/15 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-          >
-            {st}
+          <button key={st.id} onClick={() => { setActiveSubtab(st.id); setSelectedCat(null); }}
+            className={`flex-1 py-2.5 rounded-[12px] text-xs font-semibold transition-all duration-200 ${
+              activeSubtab === st.id
+                ? 'gradient-accent text-white shadow-md'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+            }`}>
+            {st.label}
           </button>
         ))}
       </div>
 
-      {/* Input */}
-      <div className="p-4 rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-lg border border-gray-200 dark:border-white/10 shadow-lg">
-        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Save {activeSubtab} Link</h3>
-        <LinkInput categories={filteredCats} onSave={handleSave} type="Video" placeholder={`Paste ${activeSubtab} URL...`} />
+      <div className="card p-5 animate-slide-up" style={{ animationDelay: '0.05s' }}>
+        <p className="section-title mb-4">Save {activeSubtab} Link</p>
+        <LinkInput categories={filteredCats} onSave={handleSave} placeholder={`Paste ${activeSubtab} URL…`} />
       </div>
 
-      {/* Categories */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categories</h3>
-          <button onClick={() => setShowNewCat(!showNewCat)} className="text-xs text-blue-500 dark:text-blue-400 font-medium">+ New</button>
+      <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <p className="section-title">Categories</p>
+          <button onClick={() => setShowNewCat(!showNewCat)} className="flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)] hover:opacity-80 transition">
+            <PlusIcon size={13} />
+            New
+          </button>
         </div>
 
         {showNewCat && (
-          <div className="flex gap-2 mb-3">
-            <input type="text" value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Category name" className="flex-1 px-3 py-2 rounded-xl bg-white/60 dark:bg-white/10 border border-gray-200 dark:border-white/20 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
-            <button onClick={handleAddCategory} className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition">Add</button>
+          <div className="flex gap-2 mb-3 animate-scale-in">
+            <input type="text" value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Category name" className="input-field flex-1"
+              onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
+            <button onClick={handleAddCategory} className="btn-primary text-sm py-3 px-5">Add</button>
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          <button
-            onClick={() => setSelectedCat(null)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${!selectedCat ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/15'}`}
-          >
+        <div className="flex flex-wrap gap-2 mb-5">
+          <button onClick={() => setSelectedCat(null)}
+            className={`pill ${!selectedCat ? 'pill-active' : 'pill-inactive'}`}>
             All ({filteredLinks.length})
           </button>
           {filteredCats.map(c => {
             const count = filteredLinks.filter(l => l.category_id === c.id).length;
             return (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCat(c.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${selectedCat === c.id ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/15'}`}
-              >
-                {c.name} ({count})
-              </button>
+              <div key={c.id} className="relative group/pill">
+                <button onClick={() => setSelectedCat(c.id)}
+                  className={`pill ${selectedCat === c.id ? 'pill-active' : 'pill-inactive'}`}>
+                  {c.name} ({count})
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); deleteCategory(c.id); if (selectedCat === c.id) setSelectedCat(null); }}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover/pill:opacity-100 transition-opacity shadow-md">
+                  <TrashIcon size={9} />
+                </button>
+              </div>
             );
           })}
         </div>
       </div>
 
-      {/* Links */}
-      <div className="space-y-2">
+      <div className="space-y-2 animate-slide-up" style={{ animationDelay: '0.15s' }}>
         {displayLinks.length === 0 && (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">No {activeSubtab} links yet</p>
+          <div className="card p-10 text-center">
+            <div className="w-14 h-14 mx-auto rounded-2xl gradient-accent-subtle flex items-center justify-center mb-4">
+              <PlayIcon size={24} className="text-[var(--accent)]" />
+            </div>
+            <p className="text-sm font-medium text-[var(--text-secondary)]">No {activeSubtab} links yet</p>
+          </div>
         )}
         {displayLinks.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(link => (
           <LinkItem key={link.id} link={link} categories={categories} categoryName={categories.find(c => c.id === link.category_id)?.name} />

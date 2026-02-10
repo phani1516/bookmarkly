@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
 import { LinkInput } from './LinkInput';
 import { LinkItem } from './LinkItem';
-import { addLink, addCategory } from '@/lib/store';
+import { addLink, addCategory, deleteCategory, uploadFileToStorage } from '@/lib/store';
+import { PlusIcon, FileIcon, UploadIcon, TrashIcon } from './Icons';
 import type { Link, Category } from '@/lib/types';
 
 interface Props {
@@ -13,6 +14,9 @@ export function DocumentsTab({ links, categories }: Props) {
   const [newCat, setNewCat] = useState('');
   const [showNewCat, setShowNewCat] = useState(false);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const docCats = categories.filter(c => c.type === 'Document');
@@ -22,17 +26,36 @@ export function DocumentsTab({ links, categories }: Props) {
     await addLink(url, 'Document', 'None', categoryId);
   };
 
+  const processFile = async (file: File) => {
+    setUploading(true);
+    setUploadStatus(`Uploading ${file.name}…`);
+
+    const cloudResult = await uploadFileToStorage(file);
+
+    if (cloudResult) {
+      await addLink(cloudResult.url, 'Document', 'None', null, file.name, file.name, undefined, cloudResult.url);
+      setUploadStatus(`✓ Uploaded "${file.name}" to cloud`);
+    } else {
+      const placeholderUrl = `local-file://${file.name}`;
+      await addLink(placeholderUrl, 'Document', 'None', null, file.name, file.name);
+      setUploadStatus(`✓ Saved "${file.name}" locally (sign in to upload to cloud)`);
+    }
+
+    setUploading(false);
+    setTimeout(() => setUploadStatus(''), 4000);
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    // Store file name and a data URL for local reference
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      await addLink(dataUrl, 'Document', 'None', null, file.name, file.name, dataUrl);
-    };
-    reader.readAsDataURL(file);
+    if (file) await processFile(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) await processFile(file);
   };
 
   const handleAddCategory = async () => {
@@ -42,70 +65,110 @@ export function DocumentsTab({ links, categories }: Props) {
     setShowNewCat(false);
   };
 
-  const displayLinks = selectedCat
-    ? docLinks.filter(l => l.category_id === selectedCat)
-    : docLinks;
+  const displayLinks = selectedCat ? docLinks.filter(l => l.category_id === selectedCat) : docLinks;
 
   return (
-    <div className="space-y-6">
-      {/* File upload */}
-      <div className="p-4 rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-lg border border-gray-200 dark:border-white/10 shadow-lg space-y-3">
-        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Upload Document</h3>
+    <div className="space-y-7">
+      <div className="card p-5 animate-slide-up">
+        <p className="section-title mb-4">Upload Document</p>
+
+        <div
+          onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => !uploading && fileInputRef.current?.click()}
+          className={`relative py-8 rounded-[16px] border-2 border-dashed transition-all duration-200 flex flex-col items-center gap-3 cursor-pointer ${
+            isDragging
+              ? 'border-[var(--accent)] bg-[var(--accent)]/5'
+              : 'border-[var(--surface-border)] hover:border-[var(--accent)]/50'
+          }`}
+        >
+          <div className="w-12 h-12 rounded-[14px] gradient-accent-subtle flex items-center justify-center">
+            <UploadIcon size={22} className="text-[var(--accent)]" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-[var(--text-secondary)]">
+              {uploading ? 'Uploading…' : 'Tap to upload or drag & drop'}
+            </p>
+            <p className="text-[10px] text-[var(--text-tertiary)] mt-1">PDF, DOC, XLS, images, and more</p>
+          </div>
+        </div>
+
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full py-8 rounded-xl border-2 border-dashed border-gray-300 dark:border-white/20 text-gray-500 dark:text-gray-400 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-500 transition text-sm font-medium"
+          disabled={uploading}
+          className="btn-primary w-full mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          📁 Tap to upload a file
+          <UploadIcon size={16} className="text-white" />
+          {uploading ? 'Uploading…' : 'Upload File'}
         </button>
-        <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
+
+        <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.png,.jpg,.jpeg,.gif,.webp,.svg,.zip,.rar" />
+
+        {uploadStatus && (
+          <p className={`text-xs font-medium mt-3 text-center ${
+            uploadStatus.includes('✓') ? 'text-green-500' : uploadStatus.includes('✗') ? 'text-red-500' : 'text-[var(--accent)]'
+          }`}>
+            {uploadStatus}
+          </p>
+        )}
       </div>
 
-      {/* URL input */}
-      <div className="p-4 rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-lg border border-gray-200 dark:border-white/10 shadow-lg">
-        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Or Save Document Link</h3>
-        <LinkInput categories={docCats} onSave={handleSave} type="Document" placeholder="Paste document URL..." />
+      <div className="card p-5 animate-slide-up" style={{ animationDelay: '0.05s' }}>
+        <p className="section-title mb-4">Or Save Document Link</p>
+        <LinkInput categories={docCats} onSave={handleSave} placeholder="Paste document URL…" />
       </div>
 
-      {/* Categories */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categories</h3>
-          <button onClick={() => setShowNewCat(!showNewCat)} className="text-xs text-blue-500 dark:text-blue-400 font-medium">+ New</button>
+      <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <p className="section-title">Categories</p>
+          <button onClick={() => setShowNewCat(!showNewCat)} className="flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)] hover:opacity-80 transition">
+            <PlusIcon size={13} />
+            New
+          </button>
         </div>
 
         {showNewCat && (
-          <div className="flex gap-2 mb-3">
-            <input type="text" value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Category name" className="flex-1 px-3 py-2 rounded-xl bg-white/60 dark:bg-white/10 border border-gray-200 dark:border-white/20 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
-            <button onClick={handleAddCategory} className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition">Add</button>
+          <div className="flex gap-2 mb-3 animate-scale-in">
+            <input type="text" value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Category name" className="input-field flex-1"
+              onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
+            <button onClick={handleAddCategory} className="btn-primary text-sm py-3 px-5">Add</button>
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          <button
-            onClick={() => setSelectedCat(null)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${!selectedCat ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/15'}`}
-          >
+        <div className="flex flex-wrap gap-2 mb-5">
+          <button onClick={() => setSelectedCat(null)}
+            className={`pill ${!selectedCat ? 'pill-active' : 'pill-inactive'}`}>
             All ({docLinks.length})
           </button>
           {docCats.map(c => {
             const count = docLinks.filter(l => l.category_id === c.id).length;
             return (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCat(c.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${selectedCat === c.id ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/15'}`}
-              >
-                {c.name} ({count})
-              </button>
+              <div key={c.id} className="relative group/pill">
+                <button onClick={() => setSelectedCat(c.id)}
+                  className={`pill ${selectedCat === c.id ? 'pill-active' : 'pill-inactive'}`}>
+                  {c.name} ({count})
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); deleteCategory(c.id); if (selectedCat === c.id) setSelectedCat(null); }}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover/pill:opacity-100 transition-opacity shadow-md">
+                  <TrashIcon size={9} />
+                </button>
+              </div>
             );
           })}
         </div>
       </div>
 
-      {/* Links */}
-      <div className="space-y-2">
+      <div className="space-y-2 animate-slide-up" style={{ animationDelay: '0.15s' }}>
         {displayLinks.length === 0 && (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">No documents yet</p>
+          <div className="card p-10 text-center">
+            <div className="w-14 h-14 mx-auto rounded-2xl gradient-accent-subtle flex items-center justify-center mb-4">
+              <FileIcon size={24} className="text-[var(--accent)]" />
+            </div>
+            <p className="text-sm font-medium text-[var(--text-secondary)]">No documents yet</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">Upload a file or paste a link above</p>
+          </div>
         )}
         {displayLinks.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(link => (
           <LinkItem key={link.id} link={link} categories={categories} categoryName={categories.find(c => c.id === link.category_id)?.name} />

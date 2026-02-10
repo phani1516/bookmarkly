@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import type { ThemeMode } from '@/lib/types';
 
-const THEME_KEY = 'mindcache_theme';
+const THEME_KEY = 'bookmarkly_theme';
 
 export function useTheme() {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
-    const stored = localStorage.getItem(THEME_KEY);
+    const stored = localStorage.getItem(THEME_KEY) || localStorage.getItem('mindcache_theme');
     return (stored === 'dark' ? 'dark' : 'light') as ThemeMode;
   });
 
