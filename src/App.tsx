@@ -10,8 +10,12 @@ import { NotesTab } from '@/components/NotesTab';
 import { Sidebar } from '@/components/Sidebar';
 import { AuthModal } from '@/components/AuthModal';
 import { ProfileModal } from '@/components/ProfileModal';
+import { AuthProvider } from './contexts/AuthContext';
+import { DataProvider } from './contexts/DataContext';
 import { HomeIcon, GlobeIcon, PlayIcon, FileIcon, NoteIcon, MenuIcon, BookmarkIcon } from '@/components/Icons';
 import type { Tab } from '@/lib/types';
+
+
 
 const tabs: { id: Tab; label: string; Icon: typeof HomeIcon }[] = [
   { id: 'home', label: 'Home', Icon: HomeIcon },
