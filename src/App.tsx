@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { useStore } from '@/hooks/useStore';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
@@ -147,6 +148,7 @@ export function App() {
           <div className="h-[env(safe-area-inset-bottom)]" />
         </nav>
       )}
+      <Analytics />
     </div>
   );
 }
