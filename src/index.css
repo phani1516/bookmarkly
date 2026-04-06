@@ -346,3 +346,15 @@ body {
   inset: 0;
   z-index: 40;
 }
+
+/* Search highlight */
+.search-highlight {
+  background-color: rgba(108, 92, 231, 0.2);
+  color: var(--text-primary);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.dark .search-highlight {
+  background-color: rgba(162, 155, 254, 0.25);
+}
