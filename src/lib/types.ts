@@ -6,6 +6,9 @@ export interface Category {
   name: string;
   type: LinkType;
   subtype: LinkSubtype;
+  color?: string;
+  position: number;
+  is_pinned: boolean;
   created_at: string;
   updated_at: string;
   is_deleted: boolean;
@@ -19,11 +22,14 @@ export interface Link {
   type: LinkType;
   subtype: LinkSubtype;
   category_id: string | null;
+  position: number;
+  is_pinned: boolean;
   created_at: string;
   updated_at: string;
   is_deleted: boolean;
   file_name?: string;
   file_data?: string;
+  file_url?: string;
   notes?: string;
   user_id?: string;
 }
@@ -36,6 +42,23 @@ export interface Note {
   updated_at: string;
   is_deleted: boolean;
   user_id?: string;
+}
+
+export interface CommunityPost {
+  id: string;
+  url: string;
+  note: string;
+  author_name: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  display_name: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export type Tab = 'home' | 'web' | 'videos' | 'documents' | 'notes';

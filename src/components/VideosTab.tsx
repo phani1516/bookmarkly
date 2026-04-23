@@ -1,23 +1,32 @@
 import { useState } from 'react';
 import { LinkInput } from './LinkInput';
-import { LinkItem } from './LinkItem';
+import { DraggableLinkList } from './DraggableLinkList';
+import { DraggableCategories } from './DraggableCategories';
 import { addLink, addCategory } from '@/lib/store';
+import { PlusIcon, ColorPaletteIcon, YouTubeIcon, InstagramIcon, AIIcon, OtherIcon } from './Icons';
 import type { Link, Category, VideoSubtab } from '@/lib/types';
 
-interface Props {
-  links: Link[];
-  categories: Category[];
-}
+const PRESET_COLORS = ['#6C5CE7', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#8B5CF6', '#06B6D4', '#F97316', '#6B7280'];
 
-const subtabs: VideoSubtab[] = ['YouTube', 'Instagram', 'AI', 'Other'];
+const subtabs: { id: VideoSubtab; label: string; color: string; Icon: React.FC<{size?: number}> }[] = [
+  { id: 'YouTube', label: 'YouTube', color: '#FF0000', Icon: YouTubeIcon },
+  { id: 'Instagram', label: 'Instagram', color: '#E1306C', Icon: InstagramIcon },
+  { id: 'AI', label: 'AI', color: '#8B5CF6', Icon: AIIcon },
+  { id: 'Other', label: 'Other', color: '#6B7280', Icon: OtherIcon },
+];
+
+interface Props { links: Link[]; categories: Category[]; }
 
 export function VideosTab({ links, categories }: Props) {
   const [activeSubtab, setActiveSubtab] = useState<VideoSubtab>('YouTube');
   const [newCat, setNewCat] = useState('');
   const [showNewCat, setShowNewCat] = useState(false);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
+  const [newCatColor, setNewCatColor] = useState('');
 
-  const filteredCats = categories.filter(c => c.type === 'Video' && c.subtype === activeSubtab);
+  const currentSub = subtabs.find(s => s.id === activeSubtab)!;
+  const filteredCats = categories.filter(c => c.type === 'Video' && c.subtype === activeSubtab)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   const filteredLinks = links.filter(l => l.type === 'Video' && l.subtype === activeSubtab);
 
   const handleSave = async (url: string, categoryId: string | null) => {
@@ -26,80 +35,103 @@ export function VideosTab({ links, categories }: Props) {
 
   const handleAddCategory = async () => {
     if (!newCat.trim()) return;
-    await addCategory(newCat.trim(), 'Video', activeSubtab);
-    setNewCat('');
-    setShowNewCat(false);
+    await addCategory(newCat.trim(), 'Video', activeSubtab, newCatColor || undefined);
+    setNewCat(''); setShowNewCat(false); setNewCatColor('');
   };
 
-  const displayLinks = selectedCat
-    ? filteredLinks.filter(l => l.category_id === selectedCat)
-    : filteredLinks;
+  const displayLinks = selectedCat ? filteredLinks.filter(l => l.category_id === selectedCat) : filteredLinks;
+
+  const linkCountByCategory: Record<string, number> = {};
+  filteredCats.forEach(c => { linkCountByCategory[c.id] = filteredLinks.filter(l => l.category_id === c.id).length; });
+
+  const getBreadcrumb = (link: Link) => {
+    const cat = categories.find(c => c.id === link.category_id);
+    if (!cat) return { text: activeSubtab, color: currentSub.color };
+    return { text: `${activeSubtab} › ${cat.name}`, color: cat.color || currentSub.color };
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Subtabs */}
-      <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-white/5">
+    <div className="space-y-7">
+      {/* Sub-tabs with brand icons */}
+      <div className="p-1 rounded-[16px] bg-[var(--surface)] border border-[var(--surface-border)] flex gap-1 animate-slide-up">
         {subtabs.map(st => (
-          <button
-            key={st}
-            onClick={() => { setActiveSubtab(st); setSelectedCat(null); }}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${activeSubtab === st ? 'bg-white dark:bg-white/15 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-          >
-            {st}
+          <button key={st.id} onClick={() => { setActiveSubtab(st.id); setSelectedCat(null); }}
+            className={`flex-1 py-2.5 rounded-[12px] text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 ${
+              activeSubtab === st.id
+                ? 'text-white shadow-md'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+            }`}
+            style={activeSubtab === st.id ? { backgroundColor: st.color } : undefined}>
+            <st.Icon size={14} />
+            <span className="hidden sm:inline">{st.label}</span>
           </button>
         ))}
       </div>
 
-      {/* Input */}
-      <div className="p-4 rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-lg border border-gray-200 dark:border-white/10 shadow-lg">
-        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Save {activeSubtab} Link</h3>
-        <LinkInput categories={filteredCats} onSave={handleSave} type="Video" placeholder={`Paste ${activeSubtab} URL...`} />
+      <div className="card p-5 animate-slide-up" style={{ animationDelay: '0.05s' }}>
+        <p className="section-title mb-4 flex items-center gap-2">
+          <currentSub.Icon size={14} />
+          Save {activeSubtab} Link
+        </p>
+        <LinkInput categories={filteredCats} onSave={handleSave} placeholder={`Paste ${activeSubtab} URL…`} />
       </div>
 
-      {/* Categories */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categories</h3>
-          <button onClick={() => setShowNewCat(!showNewCat)} className="text-xs text-blue-500 dark:text-blue-400 font-medium">+ New</button>
+      <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <p className="section-title">Categories</p>
+          <button onClick={() => setShowNewCat(!showNewCat)} className="flex items-center gap-1.5 text-xs font-semibold hover:opacity-80 transition"
+            style={{ color: currentSub.color }}>
+            <PlusIcon size={13} /> New
+          </button>
         </div>
 
         {showNewCat && (
-          <div className="flex gap-2 mb-3">
-            <input type="text" value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Category name" className="flex-1 px-3 py-2 rounded-xl bg-white/60 dark:bg-white/10 border border-gray-200 dark:border-white/20 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
-            <button onClick={handleAddCategory} className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition">Add</button>
+          <div className="card-sm p-4 mb-3 space-y-3 animate-scale-in">
+            <div className="flex gap-2">
+              <input type="text" value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Category name" className="input-field flex-1"
+                onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
+              <button onClick={handleAddCategory} className="btn-primary text-sm py-3 px-5">Add</button>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider mb-2 flex items-center gap-1">
+                <ColorPaletteIcon size={11} /> Color (optional)
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                {PRESET_COLORS.map(c => (
+                  <button key={c} onClick={() => setNewCatColor(newCatColor === c ? '' : c)}
+                    className="w-6 h-6 rounded-full transition-all border-2"
+                    style={{ backgroundColor: c, borderColor: newCatColor === c ? 'var(--text-primary)' : 'transparent', transform: newCatColor === c ? 'scale(1.2)' : 'scale(1)' }} />
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          <button
-            onClick={() => setSelectedCat(null)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${!selectedCat ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/15'}`}
-          >
-            All ({filteredLinks.length})
-          </button>
-          {filteredCats.map(c => {
-            const count = filteredLinks.filter(l => l.category_id === c.id).length;
-            return (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCat(c.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${selectedCat === c.id ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/15'}`}
-              >
-                {c.name} ({count})
-              </button>
-            );
-          })}
+        <div className="mb-5">
+          <DraggableCategories
+            categories={filteredCats}
+            allLinkCount={filteredLinks.length}
+            linkCountByCategory={linkCountByCategory}
+            selectedCat={selectedCat}
+            onSelectCat={setSelectedCat}
+            type="Video"
+            subtype={activeSubtab}
+            activeColor={currentSub.color}
+          />
         </div>
       </div>
 
-      {/* Links */}
-      <div className="space-y-2">
-        {displayLinks.length === 0 && (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">No {activeSubtab} links yet</p>
+      <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
+        {displayLinks.length === 0 ? (
+          <div className="card p-10 text-center">
+            <div className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: currentSub.color + '15' }}>
+              <currentSub.Icon size={24} />
+            </div>
+            <p className="text-sm font-medium text-[var(--text-secondary)]">No {activeSubtab} links yet</p>
+          </div>
+        ) : (
+          <DraggableLinkList links={displayLinks} categories={categories} getBreadcrumb={getBreadcrumb} />
         )}
-        {displayLinks.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(link => (
-          <LinkItem key={link.id} link={link} categories={categories} categoryName={categories.find(c => c.id === link.category_id)?.name} />
-        ))}
       </div>
     </div>
   );
