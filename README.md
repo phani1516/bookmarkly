@@ -293,6 +293,25 @@ Any static host works (Vercel, Netlify, Cloudflare Pages, GitHub Pages, S3). The
 
 ---
 
+## 🔐 Security & Environment
+
+Bookmarkly's backend is secured at the **database layer**, not the client. A quick note on what's committed to this repo and what isn't:
+
+**Committed (and safe to expose):**
+- The `supabase/` SQL migration files — these describe schema (tables, indexes, RLS policies) and contain no secrets.
+- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env` — these are **designed** to ship to the browser. Supabase's anon key only has the permissions your Row-Level Security policies grant to authenticated users.
+
+**Never committed (enforced by `.gitignore`):**
+- The Supabase **service role key** — bypasses RLS entirely; lives only in trusted server environments.
+- Database password, JWT secret, and anything under *Settings → API* that isn't labeled `anon public`.
+
+**How authorization actually works:**
+Every table (`categories`, `links`, `notes`, `profiles`) has **Row-Level Security enabled** with policies of the form `auth.uid() = user_id`. The anon key can only read or write rows where the authenticated user matches the row owner. Even if someone opens DevTools and crafts a raw Supabase query, they can't see another user's data — the database itself enforces the boundary.
+
+This is the canonical Supabase security model: **client-side filters are a hint, RLS is the law.**
+
+---
+
 ## 🎓 What I Built (and Learned)
 
 Building Bookmarkly end-to-end meant making real decisions at every layer:
